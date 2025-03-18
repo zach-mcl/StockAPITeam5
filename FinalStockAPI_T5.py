@@ -49,6 +49,8 @@ def sort_data(data, start, end):
     
     return filter_data
 
+#This is the function I referenced in the chat
+
 def create_stock_chart(stock_data, symbol, chart_type):
     chart_types = {"line": pygal.Line, "bar": pygal.Bar}
 
@@ -60,11 +62,11 @@ def create_stock_chart(stock_data, symbol, chart_type):
     chart.x_labels = list(stock_data.keys())
     chart.add(symbol, list(stock_data.values()))
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_str = datetime.now().strftime("%Y-%m-%d") #Chart is currently set to be saved as when you pulled the request, maybe make it so it shows the range of dates pulled?
     filename = f"{symbol}_{date_str}_stock_chart.svg"
-    chart.render_to_file(filename)
+    chart.render_to_file(filename) #render to file is essentially pygals way of saying in path
 
-    print(f"Chart saved as '{filename}'. Open in a browser to view.")
+    print(f"Chart saved as '{filename}'. Open in a browser to view.") #to  be saved in working path
 
 def main():
     while True:
