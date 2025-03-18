@@ -49,36 +49,28 @@ def sort_data(data, start, end):
     
     return filter_data
 
-#This is the function I referenced in the chat
-
-def create_stock_chart(stock_data, symbol, chart_type):
+# This is the function I referenced in the chat.
+def create_stock_chart(stock_data, symbol, chart_type, start_date, end_date):
     chart_types = {"line": pygal.Line, "bar": pygal.Bar}
 
     while chart_type not in chart_types:
         print("Invalid chart type. Please enter 'line' or 'bar'.")
         chart_type = input("Enter chart type: ").strip().lower()
 
+    # Sort dates to display data in chronological order.
+    sorted_dates = sorted(stock_data.keys())
     chart = chart_types[chart_type](title=f"{symbol} Stock Prices", x_label_rotation=45)
-    chart.x_labels = list(stock_data.keys())
-    chart.add(symbol, list(stock_data.values()))
+    chart.x_labels = sorted_dates
+    chart.add(symbol, [stock_data[date] for date in sorted_dates])
 
-    date_str = datetime.now().strftime("%Y-%m-%d") #Chart is currently set to be saved as when you pulled the request, maybe make it so it shows the range of dates pulled?
-    filename = f"{symbol}_{date_str}_stock_chart.svg"
-    chart.render_to_file(filename) #render to file is essentially pygals way of saying in path
+    # Filename now shows the date range.
+    filename = f"{symbol}_{start_date}_to_{end_date}_stock_chart.svg"
+    chart.render_to_file(filename)
 
-    print(f"Chart saved as '{filename}'. Open in a browser to view.") #to  be saved in working path
+    print(f"Chart saved as '{filename}'. Open in a browser to view.")
 
 def main():
-    while True:
-        symbol = input("Enter stock symbol (e.g., AAPL, TSLA): ").upper()
-        data = fetch_stock_data(symbol, function="TIME_SERIES_DAILY")
-
-        if data:
-            break
-        else:
-            print("Please enter a valid stock symbol.")
-
-    chart_type = input("Enter chart type (line/bar): ").lower()
+    symbol = input("Enter stock symbol (e.g., AAPL, TSLA): ").upper()
 
     print("\nChoose a time series function:")
     print("1. Daily")
@@ -96,6 +88,15 @@ def main():
         print("Invalid input, defaulting to TIME_SERIES_DAILY.")
         function = "TIME_SERIES_DAILY"
 
+    # Fetch data once using the selected function.
+    data = fetch_stock_data(symbol, function)
+    while not data:
+        print("Please enter a valid stock symbol.")
+        symbol = input("Enter stock symbol (e.g., AAPL, TSLA): ").upper()
+        data = fetch_stock_data(symbol, function)
+
+    chart_type = input("Enter chart type (line/bar): ").lower()
+
     start_date = input("Enter start date (YYYY-MM-DD): ")
     end_date = input("Enter end date (YYYY-MM-DD): ")
 
@@ -110,16 +111,10 @@ def main():
         print("Error: End date cannot be before start date.")
         return
 
-    data = fetch_stock_data(symbol, function)
-
-    if not data:
-        print("Error: No data available.")
-        return
-
     filtered_data = sort_data(data, start_date, end_date)
 
     if filtered_data:
-        create_stock_chart(filtered_data, symbol, chart_type)
+        create_stock_chart(filtered_data, symbol, chart_type, start_date, end_date)
     else:
         print("No stock data available for the given date range.")
 
