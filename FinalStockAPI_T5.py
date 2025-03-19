@@ -14,15 +14,10 @@ def fetch_stock_data(symbol, function):
     }
 
     response = requests.get(url, params=stock_info)
-
     if response.ok:
         data = response.json()
-        time_series_key = None
-        for key in data.keys():
-            if "Time Series" in key:
-                time_series_key = key
-                break
-
+        # Identify the correct key containing the time series data
+        time_series_key = next((key for key in data if "Time Series" in key), None)
         if time_series_key:
             return data[time_series_key]
         else:
@@ -33,53 +28,40 @@ def fetch_stock_data(symbol, function):
         return None
 
 def sort_data(data, start, end):
-    filter_data = {}
-
+    filtered_data = {}
     for date, values in data.items():
         if start <= date <= end:
             close_price = values.get("4. close")
             if close_price:
                 try:
-                    filter_data[date] = float(close_price)
+                    filtered_data[date] = float(close_price)
                 except ValueError:
                     print(f"Warning: Invalid close price data for {date}, skipping this date.")
-                    continue
             else:
                 print(f"Warning: Missing data for {date}, skipping this date.")
-    
-    return filter_data
+    return filtered_data
 
-#This is the function I referenced in the chat
-
-def create_stock_chart(stock_data, symbol, chart_type):
+def create_stock_chart(stock_data, symbol, chart_type, start_date, end_date):
     chart_types = {"line": pygal.Line, "bar": pygal.Bar}
-
+    # Validate chart type until a proper one is given
     while chart_type not in chart_types:
         print("Invalid chart type. Please enter 'line' or 'bar'.")
         chart_type = input("Enter chart type: ").strip().lower()
-
+    
+    # Sort the dates to display the data in chronological order
+    sorted_dates = sorted(stock_data.keys())
     chart = chart_types[chart_type](title=f"{symbol} Stock Prices", x_label_rotation=45)
-    chart.x_labels = list(stock_data.keys())
-    chart.add(symbol, list(stock_data.values()))
-
-    date_str = datetime.now().strftime("%Y-%m-%d") #Chart is currently set to be saved as when you pulled the request, maybe make it so it shows the range of dates pulled?
-    filename = f"{symbol}_{date_str}_stock_chart.svg"
-    chart.render_to_file(filename) #render to file is essentially pygals way of saying in path
-
-    print(f"Chart saved as '{filename}'. Open in a browser to view.") #to  be saved in working path
+    chart.x_labels = sorted_dates
+    chart.add(symbol, [stock_data[date] for date in sorted_dates])
+    
+    # Incorporate the date range into the filename
+    filename = f"{symbol}_{start_date}_to_{end_date}_stock_chart.svg"
+    chart.render_to_file(filename)
+    print(f"Chart saved as '{filename}'. Open it in a browser to view.")
 
 def main():
-    while True:
-        symbol = input("Enter stock symbol (e.g., AAPL, TSLA): ").upper()
-        data = fetch_stock_data(symbol, function="TIME_SERIES_DAILY")
-
-        if data:
-            break
-        else:
-            print("Please enter a valid stock symbol.")
-
-    chart_type = input("Enter chart type (line/bar): ").lower()
-
+    # Prompt for symbol and desired time series function before fetching data
+    symbol = input("Enter stock symbol (e.g., AAPL, TSLA): ").upper()
     print("\nChoose a time series function:")
     print("1. Daily")
     print("2. Weekly")
@@ -96,12 +78,22 @@ def main():
         print("Invalid input, defaulting to TIME_SERIES_DAILY.")
         function = "TIME_SERIES_DAILY"
 
-    start_date = input("Enter start date (YYYY-MM-DD): ")
-    end_date = input("Enter end date (YYYY-MM-DD): ")
+    # Fetch the data once using the selected function
+    data = fetch_stock_data(symbol, function=function)
+    if not data:
+        print("Error: No data available. Please verify the stock symbol.")
+        return
+
+    chart_type = input("Enter chart type (line/bar): ").strip().lower()
+    start_date = input("Enter start date (YYYY-MM-DD): ").strip()
+    end_date = input("Enter end date (YYYY-MM-DD): ").strip()
 
     try:
-        start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+        # Validate and reformat the dates
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+        start_date = start_date_obj.strftime("%Y-%m-%d")
+        end_date = end_date_obj.strftime("%Y-%m-%d")
     except ValueError:
         print("Error: Incorrect date format. Use YYYY-MM-DD.")
         return
@@ -110,16 +102,9 @@ def main():
         print("Error: End date cannot be before start date.")
         return
 
-    data = fetch_stock_data(symbol, function)
-
-    if not data:
-        print("Error: No data available.")
-        return
-
     filtered_data = sort_data(data, start_date, end_date)
-
     if filtered_data:
-        create_stock_chart(filtered_data, symbol, chart_type)
+        create_stock_chart(filtered_data, symbol, chart_type, start_date, end_date)
     else:
         print("No stock data available for the given date range.")
 
